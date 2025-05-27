@@ -64,7 +64,7 @@
 
         /* Base styles for the body and headings */
         html {
-            height: 100%; /* Ensure html takes full height */
+            /* Removed height: 100%; - let it grow with content */
             overflow-y: auto; /* Allow scrolling on html as a fallback */
         }
         body {
@@ -73,9 +73,8 @@
             color: var(--color-text-primary);
             margin: 0; /* Ensure canvas takes full screen */
             transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
-            height: 100%; /* Ensure body takes full height of html */
             min-height: 100vh; /* Ensure body is at least viewport height */
-            overflow-y: scroll; /* Explicitly enable vertical scrolling */
+            overflow-y: scroll; /* Explicitly enable vertical scrolling on body */
             -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
             touch-action: pan-y; /* Allow vertical panning/scrolling */
         }
