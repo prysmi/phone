@@ -4,14 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PRYSMI Agency | Marketing That Works Like a Product</title>
+    <script>
+        // 1. INSTRUMENTATION: Log every touch listener
+        // Place this script at the very top of your <head>
+        ;(function(){
+            const orig = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, fn, opts){
+                if (type.startsWith('touch')) {
+                    console.log(
+                        '%c[TouchListener]%c',
+                        'color: #0a0; font-weight: bold;',
+                        '',
+                        this, type, fn.name || fn.toString().substr(0,50)
+                    );
+                }
+                return orig.call(this, type, fn, opts);
+            };
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.128.0/examples/jsm/controls/OrbitControls.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital@1&family=Libre+Franklin:wght@400;600;800;900&display=swap" rel="stylesheet">
     <style>
         /* CSS Variables for Theming */
         :root {
+            /* Dynamic viewport unit for mobile */
+            --vh: 1vh;
+
             /* Dark Mode Defaults */
             --color-bg-body: #0A0A0A;
             --color-bg-section: rgba(26, 26, 26, 0.75); /* Increased transparency */
@@ -64,23 +86,23 @@
 
         /* Base styles for the body and headings */
         html {
-            height: 100%; /* Ensure html takes full viewport height */
+            height: auto;
+            min-height: 100%;
+            overflow-y: auto;
+            overscroll-behavior: auto;
         }
         body {
             font-family: 'Libre Franklin', sans-serif;
             background-color: var(--color-bg-body);
             color: var(--color-text-primary);
-            margin: 0;
-            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            margin: 0; /* Ensure canvas takes full screen */
             transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
-            min-height: 100vh; /* Ensure body is at least viewport height */
-            overflow-y: scroll; /* Enable vertical scrolling for content */
-            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-            touch-action: pan-y; /* Allow vertical panning/scrolling */
-            position: relative; /* Establish stacking context for z-index */
-            z-index: 1; /* Ensure body content is above the fixed canvas */
+            height: auto;
+            min-height: calc(var(--vh) * 100); /* Modified for dynamic viewport */
+            overscroll-behavior: auto;
         }
-
         h1, h2, h3, h4 {
             font-family: 'Libre Franklin', sans-serif;
             font-weight: 800;
@@ -100,7 +122,6 @@
             backdrop-filter: blur(12px); /* Increased blur for glass effect */
             -webkit-backdrop-filter: blur(12px); /* For Safari */
             transition: all 0.3s ease-in-out;
-            z-index: 1000; /* Ensure header is always on top */
         }
         #main-header.scrolled {
             background-color: var(--color-header-sticky-bg);
@@ -201,16 +222,22 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            /* Crucial change: prevent canvas from intercepting pointer events */
-            pointer-events: none;
+            /* pointer-events: auto; REMOVED from here, managed by media query below */
+            touch-action: pan-y; /* Remains for both desktop/mobile */
             background-color: var(--color-bg-body); /* Uses CSS variable */
             display: block;
             transition: background-color 0.3s ease-in-out;
         }
-        /* Ensure main content is above the background */
+
+        @media (max-width: 768px) {
+            #waving-dots-3d-background {
+                pointer-events: none; /* Applied only on small screens */
+            }
+        }
+
         header, main, footer {
-            position: relative; /* Ensure these elements establish a stacking context */
-            z-index: 10; /* A higher z-index to be above the canvas, but lower than header/buttons */
+            position: relative;
+            z-index: 1;
         }
 
         /* New Hero Title Glow Animation */
@@ -270,7 +297,7 @@
             font-size: 1.5rem;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
             transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out, opacity 0.3s ease-in-out;
-            z-index: 901; /* Higher than main content, lower than theme toggle */
+            z-index: 900;
             opacity: 0;
             visibility: hidden;
         }
@@ -303,7 +330,7 @@
             justify-content: center; /* Center the symbol */
             width: 3rem; /* Fixed width for consistent button size */
             height: 3rem; /* Fixed height for consistent button size */
-            z-index: 1001; /* Higher than header and back-to-top button */
+            z-index: 950; /* Higher than back-to-top button */
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Add shadow for floating effect */
         }
         #theme-toggle:hover {
@@ -320,17 +347,12 @@
             transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out, border-color 0.3s ease-in-out;
         }
 
-        /* Mobile menu specific styles */
-        #mobile-menu {
-            background-color: var(--color-header-sticky-bg);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            padding: 1rem;
-            margin: 1rem;
-            z-index: 999; /* Ensure mobile menu is above main content but below header/floating buttons */
+        /* Temporarily uncomment this for debugging to see all element outlines */
+        /*
+        * {
+            outline: 1px solid rgba(255, 0, 0, 0.2);
         }
+        */
     </style>
 </head>
 <body class="antialiased">
@@ -354,34 +376,13 @@
                     <button id="get-started-header-btn" class="nav-link bg-[#F53196] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-[#EEFF41] hover:text-gray-900 transition-all duration-300 text-sm button-glow-pink" aria-label="Get Started with PRYSMI Agency">Get Started</button>
                 </div>
             </div>
-            <div class="-mr-2 flex md:hidden">
-                <button type="button" id="mobile-menu-button" class="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" aria-controls="mobile-menu" aria-expanded="false">
-                    <span class="sr-only">Open main menu</span>
-                    <svg class="block h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                    <svg class="hidden h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
         </nav>
-
-        <div class="md:hidden hidden" id="mobile-menu">
-            <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                <a href="#about" class="nav-link block px-3 py-2 rounded-md text-base font-medium" aria-current="page">About</a>
-                <a href="#challenges" class="nav-link block px-3 py-2 rounded-md text-base font-medium">Challenges</a>
-                <a href="#process" class="nav-link block px-3 py-2 rounded-md text-base font-medium">Our Process</a>
-                <a href="#impact-outcomes" class="nav-link block px-3 py-2 rounded-md text-base font-medium">Our Impact</a>
-                <a href="#contact" class="nav-link block px-3 py-2 rounded-md text-base font-medium">Contact</a>
-                <button id="get-started-mobile-btn" class="nav-link bg-[#F53196] text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-[#EEFF41] hover:text-gray-900 transition-all duration-300 text-base button-glow-pink w-full text-left mt-4" aria-label="Get Started with PRYSMI Agency">Get Started</button>
-            </div>
-        </div>
     </header>
 
     <main class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <section id="hero" class="flex flex-col justify-center items-center text-center py-16 md:py-24 bg-gradient-to-br from-[#FF53AC] to-[#1A1A1A] rounded-xl my-8 shadow-2xl transform hover:scale-[1.005] transition-transform duration-300">
-            <div class="max-w-4xl px-4"> <h1 class="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight text-white hero-title-glow fade-in-up">
+        <section id="hero" class="min-h-[calc(100vh-4rem)] flex flex-col justify-center items-center text-center py-16 md:py-24 bg-gradient-to-br from-[#FF53AC] to-[#1A1A1A] rounded-xl my-8 shadow-2xl transform hover:scale-[1.005] transition-transform duration-300">
+            <div class="max-w-4xl">
+                <h1 class="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black tracking-tight text-white hero-title-glow fade-in-up">
                     Unbore Your B2B Marketing<br>with Absolute Clarity.
                 </h1>
                 <p class="text-lg sm:text-xl md:text-2xl text-white text-emphasis-italic-bold opacity-90 fade-in-up delay-200ms mb-0 mt-4 md:mt-6">
@@ -396,7 +397,8 @@
         </section>
 
         <section id="about" class="py-16 md:py-24 rounded-xl shadow-2xl">
-            <div class="text-center mb-12 px-4"> <p class="mt-4 text-lg fade-in-up">
+            <div class="text-center mb-12">
+                <p class="mt-4 text-lg fade-in-up">
                     <span class="text-emphasis-italic-bold">Relax, we’re not just another agency.</span>
                 </p>
                 <h2 class="text-3xl sm:text-4xl font-black fade-in-up">We are Prysmi Media Labs.</h2>
@@ -418,11 +420,13 @@
         </section>
 
         <section id="challenges" class="py-16 md:py-24">
-            <div class="text-center mb-12 px-4"> <h2 class="text-3xl sm:text-4xl font-black fade-in-up">The Challenges We Solve</h2>
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-black fade-in-up">The Challenges We Solve</h2>
                 <p class="mt-4 text-lg fade-in-up">Many founder-led tech firms and consultancies grapple with marketing that <span class="text-emphasis-italic-bold">doesn't deliver predictable revenue.</span></p>
                 <p class="mt-4 text-lg fade-in-up">If you've outgrown <span class="text-emphasis-italic-bold">scattered messaging and siloed content</span>, some challenges might resonate with you:</p>
             </div>
-            <div class="max-w-3xl mx-auto space-y-6 px-4"> <div class="p-6 rounded-xl shadow-lg border flex items-start space-x-4 fade-in-up">
+            <div class="max-w-3xl mx-auto space-y-6">
+                <div class="p-6 rounded-xl shadow-lg border flex items-start space-x-4 fade-in-up">
                     <span class="text-green-400 text-2xl mt-1">✅</span>
                     <div>
                         <h3 class="text-xl font-semibold text-[#EEFF41] mb-2">Inconsistent Messaging</h3>
@@ -461,7 +465,8 @@
         </section>
 
         <section id="process" class="py-16 md:py-24 rounded-xl shadow-2xl">
-            <div class="text-center mb-12 px-4"> <h2 class="text-3xl sm:text-4xl font-black fade-in-up">The PRYSMI Process</h2>
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-black fade-in-up">The PRYSMI Process</h2>
                 <p class="mt-4 text-lg fade-in-up">
                     <span class="text-emphasis-italic-bold">Structure That Sells. Messaging That Moves. Systems That Scale.</span>
                 </p>
@@ -470,7 +475,8 @@
                 </p>
             </div>
 
-            <div class="max-w-4xl mx-auto space-y-16 px-4"> <div class="flex flex-col md:flex-row items-center justify-center gap-8 fade-in-up">
+            <div class="max-w-4xl mx-auto space-y-16">
+                <div class="flex flex-col md:flex-row items-center justify-center gap-8 fade-in-up">
                     <div class="md:w-1/2 text-center md:text-left">
                         <h3 class="text-2xl font-bold text-[#EEFF41] mb-2">Step 1: Clarity Comes First</h3>
                         <p class="text-lg font-bold mb-4 text-emphasis-italic-bold">Value-Led Messaging & Deep Discovery</p>
@@ -517,8 +523,7 @@
                 </div>
 
                 <div class="flex flex-col md:flex-row items-center justify-center gap-8 fade-in-up">
-                    <div class="md:w-1/2 text-center md:text-left">
-                        <h3 class="text-2xl font-bold text-[#EEFF41] mb-2">Step 5: Execute With Precision</h3>
+                    <div class="md:w-1/2 text-center md:text-left"> <h3 class="text-2xl font-bold text-[#EEFF41] mb-2">Step 5: Execute With Precision</h3>
                         <p class="text-lg font-bold mb-4 text-emphasis-italic-bold">Full-Throttle Content. Adaptive Strategy.</p>
                         <p class="mb-4">Now the engine runs. We implement site and messaging updates, roll out social and outbound strategies, and launch a founder-led content rhythm across channels.</p>
                         <p class="mb-4">Ongoing performance audits, optimization reports, and weekly sales-alignment loops keep everything sharp. This is where momentum becomes your marketing baseline.</p>
@@ -531,15 +536,14 @@
         </section>
 
         <section id="impact-outcomes" class="py-16 md:py-24">
-            <div class="text-center mb-12 px-4"> <h2 class="text-3xl sm:text-4xl font-black fade-in-up">Our Impact & Your Outcomes</h2>
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-black fade-in-up">Our Impact & Your Outcomes</h2>
                 <p class="mt-4 text-lg fade-in-up">
-                    Our 5-phase system isn't just a process;<br>
-                    it's a pathway to <span class="text-emphasis-italic-bold">tangible results</span> and a marketing engine that truly works for you.
-                    <br><br>
-                    You walk away making <span class="text-emphasis-italic-bold">momentum</span> your marketing baseline.
+                    Our 5-phase system isn't just a process;<br> it's a pathway to <span class="text-emphasis-italic-bold">tangible results</span> and a marketing engine that truly works for you. <br><br> You walk away making <span class="text-emphasis-italic-bold">momentum</span> your marketing baseline.
                 </p>
             </div>
-            <div class="max-w-3xl mx-auto space-y-6 px-4"> <div class="p-6 rounded-xl shadow-lg border flex items-start space-x-4 fade-in-up">
+            <div class="max-w-3xl mx-auto space-y-6">
+                <div class="p-6 rounded-xl shadow-lg border flex items-start space-x-4 fade-in-up">
                     <span class="text-green-400 text-2xl mt-1">✅</span>
                     <p class="text-lg text-left">A messaging system your team actually uses</p>
                 </div>
@@ -559,18 +563,14 @@
                     <span class="text-green-400 text-2xl mt-1">✅</span>
                     <p class="text-lg text-left">Revenue-aligned marketing in motion</p>
                 </div>
-
                 <div class="mt-12 text-center p-8 rounded-xl shadow-xl border fade-in-up">
                     <p class="text-lg text-white mb-6">
-                        <span class="text-emphasis-italic-bold">Your marketing should work as hard as your product.</span>
-                        We craft strategies that ensure every effort translates into tangible growth and measurable impact.
+                        <span class="text-emphasis-italic-bold">Your marketing should work as hard as your product.</span> We craft strategies that ensure every effort translates into tangible growth and measurable impact.
                     </p>
-
                     <h3 class="text-2xl sm:text-3xl font-black mb-4">What Our Clients Say</h3>
                     <p class="text-lg mb-8 max-w-xl mx-auto">
                         Don't just take our word for it. Hear from the businesses we've helped achieve their marketing goals.
                     </p>
-
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
                         <div class="p-6 rounded-xl shadow-lg border text-left">
                             <p class="text-lg italic mb-4">
@@ -585,7 +585,6 @@
                             <p class="font-semibold">- John Smith, Marketing Director at Innovate Systems</p>
                         </div>
                     </div>
-
                     <h4 class="text-xl sm:text-2xl font-bold mb-4">
                         Get <span class="text-emphasis-italic-bold">Full-throated, Experienced Answers</span><br>
                         to any questions on Modern B2B Marketing.
@@ -700,7 +699,8 @@
         </section>
 
         <section id="contact" class="py-16 md:py-24 rounded-xl shadow-2xl mb-16">
-            <div class="text-center mb-12 px-4"> <h2 class="text-3xl sm:text-4xl font-black fade-in-up">Get in Touch</h2>
+            <div class="text-center mb-12">
+                <h2 class="text-3xl sm:text-4xl font-black fade-in-up">Get in Touch</h2>
                 <p class="mt-4 text-lg fade-in-up">We'd love to hear from you!</p>
             </div>
             <div class="max-w-xl mx-auto p-8 sm:p-10 rounded-xl shadow-xl border fade-in-up">
@@ -760,321 +760,240 @@
         <span class="theme-symbol"></span>
     </button>
 
-    <script>
-        // --- Three.js Waving Dots Background Animation Script ---
-        function initializeThreeJSBackground() {
-            const canvas = document.getElementById('waving-dots-3d-background');
-            if (!canvas) {
-                console.error("3D waving dots canvas not found!");
-                document.body.style.backgroundColor = getComputedStyle(document.body).getPropertyValue('--color-bg-body');
-                return;
-            }
-
-            const scene = new THREE.Scene();
-            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-
-            // Function to update Three.js colors based on theme
-            window.updateThreeJSColors = function() { // Made global for access from theme toggle
-                const isLightMode = document.body.classList.contains('light-mode');
-                const bgColor = isLightMode ? 0xF5F5F5 : 0x0A0A0A; // Light mode background or dark mode
-                renderer.setClearColor(bgColor, 1);
-
-                // Adjust particle colors based on theme
-                const paletteLight = [new THREE.Color("#FF53AC"), new THREE.Color("#333333")]; // Pink and dark gray for light mode
-                const paletteDark = [new THREE.Color("#FF53AC"), new THREE.Color("#FFFFFF")]; // Pink and white for dark mode
-
-                const currentPalette = isLightMode ? paletteLight : paletteDark;
-
-                if (particleSystem) { // Ensure particleSystem exists before updating
-                    const colorsArray = particleSystem.geometry.attributes.color.array;
-                    // Re-assign colors based on the new palette
-                    for (let i = 0; i < dotCount; i++) {
-                        const color = currentPalette[Math.floor(Math.random() * currentPalette.length)];
-                        colorsArray[i * 3] = color.r;
-                        colorsArray[i * 3 + 1] = color.g;
-                        colorsArray[i * 3 + 2] = color.b;
-                    }
-                    particleSystem.geometry.attributes.color.needsUpdate = true;
-                }
-            };
-
-
-            const dotCount = 15000;
-            const particlesGeometry = new THREE.BufferGeometry();
-            const positions = new Float32Array(dotCount * 3);
-            const colorsAttribute = new Float32Array(dotCount * 3);
-
-            const waveAmplitude = 2;
-            const waveFrequency = 0.2;
-            const planeSize = 40;
-
-            for (let i = 0; i < dotCount; i++) {
-                positions[i * 3] = (Math.random() - 0.5) * planeSize;
-                positions[i * 3 + 1] = 0;
-                positions[i * 3 + 2] = (Math.random() - 0.5) * planeSize;
-            }
-
-            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorsAttribute, 3)); // Initialize with empty colors, will be filled by updateThreeJSColors
-
-            const particleMaterial = new THREE.PointsMaterial({
-                size: 0.08,
-                vertexColors: true,
-                transparent: true,
-                opacity: 0.8,
-                sizeAttenuation: true
-            });
-
-            const particleSystem = new THREE.Points(particlesGeometry, particleMaterial);
-            scene.add(particleSystem);
-
-            camera.position.z = 15;
-            camera.position.y = 5;
-            camera.lookAt(scene.position);
-
-            let mouseX = 0, mouseY = 0;
-            let targetRotationX = 0;
-            let targetRotationY = 0;
-            let windowHalfX = window.innerWidth / 2;
-            let windowHalfY = window.innerHeight / 2;
-
-            document.addEventListener('mousemove', onDocumentMouseMove, false);
-            document.addEventListener('touchstart', onDocumentTouchStart, { passive: false });
-            document.addEventListener('touchmove', onDocumentTouchMove, { passive: false });
-
-
-            function onDocumentMouseMove(event) {
-                mouseX = (event.clientX - windowHalfX) * 0.01;
-                mouseY = (event.clientY - windowHalfY) * 0.01;
-            }
-
-            function onDocumentTouchStart(event) {
-                if (event.touches.length === 1) {
-                    event.preventDefault();
-                    mouseX = (event.touches[0].pageX - windowHalfX) * 0.015;
-                    mouseY = (event.touches[0].pageY - windowHalfY) * 0.015;
-                }
-            }
-
-            function onDocumentTouchMove(event) {
-                if (event.touches.length === 1) {
-                    event.preventDefault();
-                    mouseX = (event.touches[0].pageX - windowHalfX) * 0.015;
-                    mouseY = (event.touches[0].pageY - windowHalfY) * 0.015;
-                }
-            }
-
-            let time = 0;
-            function animate() {
-                requestAnimationFrame(animate);
-                time += 0.01;
-
-                const positionsArray = particleSystem.geometry.attributes.position.array;
-                const colorsArray = particleSystem.geometry.attributes.color.array;
-
-                for (let i = 0; i < dotCount; i++) {
-                    const x = positionsArray[i * 3];
-                    const z = positionsArray[i * 3 + 2];
-
-                    const yWave = Math.sin(x * waveFrequency + time) * waveAmplitude * 0.5 +
-                                  Math.cos(z * waveFrequency * 0.7 + time * 0.8) * waveAmplitude * 0.5;
-                    positionsArray[i * 3 + 1] = yWave;
-
-                    // Re-assign colors based on the new palette on a timed interval for subtle animation
-                    // This ensures colors update with theme changes and also have subtle shifts
-                    if (Math.floor(time * 10) % 120 === i % 120) {
-                        const isLightMode = document.body.classList.contains('light-mode');
-                        const palette = isLightMode ? [new THREE.Color("#FF53AC"), new THREE.Color("#333333")] : [new THREE.Color("#FF53AC"), new THREE.Color("#FFFFFF")];
-                        const color = palette[Math.floor(Math.random() * palette.length)];
-                        colorsArray[i * 3] = color.r;
-                        colorsArray[i * 3 + 1] = color.g;
-                        colorsArray[i * 3 + 2] = color.b;
-                    }
-                }
-                particleSystem.geometry.attributes.position.needsUpdate = true;
-                particleSystem.geometry.attributes.color.needsUpdate = true;
-
-                targetRotationX = mouseY * 0.2;
-                targetRotationY = mouseX * 0.2;
-
-                camera.rotation.x += (targetRotationX - camera.rotation.x) * 0.05;
-                camera.rotation.y += (targetRotationY - camera.rotation.y) * 0.05;
-
-                const boundingBox = new THREE.Box3().setFromObject(particleSystem);
-                const center = new THREE.Vector3();
-                boundingBox.getCenter(center);
-                camera.lookAt(center);
-
-                renderer.render(scene, camera);
-            }
-
-            window.addEventListener('resize', () => {
-                windowHalfX = window.innerWidth / 2; // Update windowHalfX on resize
-                windowHalfY = window.innerHeight / 2; // Update windowHalfY on resize
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-                renderer.setSize(window.innerWidth, window.innerHeight);
-            }, false);
-
-            window.updateThreeJSColors(); // Initial color setup
-            animate(); // Start Three.js animation
+    <script type="module">
+        // Helper to check if an element is in viewport
+        function isInViewport(element) {
+            const rect = element.getBoundingClientRect();
+            return (
+                rect.top <= (window.innerHeight || document.documentElement.clientHeight) &&
+                rect.bottom >= 0 &&
+                rect.left <= (window.innerWidth || document.documentElement.clientWidth) &&
+                rect.right >= 0
+            );
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Mobile menu toggle functionality
-            const mobileMenuButton = document.getElementById('mobile-menu-button');
-            const mobileMenu = document.getElementById('mobile-menu');
-            // Get the SVG icons for the menu button
-            const menuIcon = mobileMenuButton ? mobileMenuButton.querySelector('svg:first-child') : null;
-            const closeIcon = mobileMenuButton ? mobileMenuButton.querySelector('svg:last-child') : null;
-
-            if (mobileMenuButton && mobileMenu) {
-                mobileMenuButton.addEventListener('click', () => {
-                    mobileMenu.classList.toggle('hidden');
-                    // Toggle the SVG icons
-                    if (menuIcon && closeIcon) {
-                        menuIcon.classList.toggle('hidden');
-                        closeIcon.classList.toggle('hidden');
-                    }
-                });
-            }
-
-
-            // Close mobile menu when a link is clicked
-            document.querySelectorAll('#mobile-menu a, #mobile-menu button').forEach(link => {
-                link.addEventListener('click', () => {
-                    if (mobileMenu) { // Add null check for mobileMenu
-                        mobileMenu.classList.add('hidden');
-                        // Ensure menu icon is shown and close icon is hidden when menu closes
-                        if (menuIcon && closeIcon) {
-                            menuIcon.classList.remove('hidden');
-                            closeIcon.classList.add('hidden');
-                        }
-                    }
+            // Smooth scrolling for navigation links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    document.querySelector(this.getAttribute('href')).scrollIntoView({
+                        behavior: 'smooth'
+                    });
                 });
             });
 
-            // Dynamically set the current year in the footer
-            const currentYearSpan = document.getElementById('currentYear');
-            if (currentYearSpan) {
-                currentYearSpan.textContent = new Date().getFullYear();
-            }
-
-            // Navigation active state logic
-            const sections = document.querySelectorAll('section');
-            const navLinks = document.querySelectorAll('.nav-link');
-
-            function changeNav(targetId) {
-                navLinks.forEach(link => {
-                    link.classList.remove('active', 'next-steps-active-style');
-                    // Check if the link is a button, if so, skip active class for scroll
-                    if (link.tagName === 'A' && link.getAttribute('href') === `#${targetId}`) {
-                        link.classList.add('active');
-                        if (targetId === 'next-steps') {
-                            link.classList.add('next-steps-active-style');
-                        }
-                    }
-                });
-            }
-            // Changed threshold to 0.1 for more sensitive highlighting
-            const observerOptions = { root: null, rootMargin: "0px", threshold: 0.1 };
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => { if (entry.isIntersecting) { changeNav(entry.target.id); } });
-            }, observerOptions);
-            sections.forEach(section => { observer.observe(section); });
-
-
-            // Animation for elements on scroll (fade-in-up)
-            const animateOnScrollElements = document.querySelectorAll('.fade-in-up');
-            const observerOptionsAnimate = { root: null, rootMargin: "0px", threshold: 0.1 };
-            const animateObserver = new IntersectionObserver((entries, obs) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.classList.add('is-visible');
-                    }
-                });
-            }, observerOptionsAnimate);
-            animateOnScrollElements.forEach(element => { animateObserver.observe(element); });
-
-            // Floating header on scroll
+            // Header shrink and shadow on scroll
             const mainHeader = document.getElementById('main-header');
-            const scrollThreshold = 50; // Pixels scrolled before header changes
             window.addEventListener('scroll', () => {
-                if (mainHeader) { // Add null check for mainHeader
-                    if (window.scrollY > scrollThreshold) {
-                        mainHeader.classList.add('scrolled');
-                    } else {
-                        mainHeader.classList.remove('scrolled');
-                    }
+                if (window.scrollY > 50) {
+                    mainHeader.classList.add('scrolled');
+                } else {
+                    mainHeader.classList.remove('scrolled');
                 }
             });
 
-            // Call the Three.js initialization function here
-            initializeThreeJSBackground();
-
-            // --- Calendly Integration ---
-            const calendlyLink = "https://calendly.com/prabhjot-prysmi";
-
-            // Buttons to open Calendly
-            const getStartedHeaderBtn = document.getElementById('get-started-header-btn');
-            const getStartedMobileBtn = document.getElementById('get-started-mobile-btn');
-            const heroCtaBtn = document.getElementById('hero-cta-btn');
-            const scheduleCallFooterBtn = document.getElementById('schedule-call-footer-btn');
-
-            // Function to redirect to Calendly
-            function redirectToCalendly() {
-                window.open(calendlyLink, '_blank'); // Open in a new tab
-            }
-
-            // Event listeners for Calendly buttons
-            if (getStartedHeaderBtn) getStartedHeaderBtn.addEventListener('click', redirectToCalendly);
-            if (getStartedMobileBtn) getStartedMobileBtn.addEventListener('click', redirectToCalendly);
-            if (heroCtaBtn) heroCtaBtn.addEventListener('click', redirectToCalendly);
-            if (scheduleCallFooterBtn) scheduleCallFooterBtn.addEventListener('click', redirectToCalendly);
-
-            // --- Back to Top Button Functionality ---
+            // Back to top button functionality
             const backToTopButton = document.getElementById('back-to-top');
-
-            window.addEventListener('scroll', () => {
-                if (backToTopButton) { // Add null check for backToTopButton
+            if (backToTopButton) {
+                window.addEventListener('scroll', () => {
                     if (window.scrollY > 300) { // Show button after scrolling 300px
                         backToTopButton.classList.add('show');
                     } else {
                         backToTopButton.classList.remove('show');
                     }
-                }
-            });
+                });
 
-            if (backToTopButton) { // Add null check for backToTopButton
                 backToTopButton.addEventListener('click', () => {
                     window.scrollTo({
                         top: 0,
-                        behavior: 'smooth' // Smooth scroll to top
+                        behavior: 'smooth'
                     });
                 });
             }
 
+            // Intersection Observer for fade-in-up animations
+            const faders = document.querySelectorAll('.fade-in-up');
+            const appearOptions = {
+                threshold: 0.1, // Trigger when 10% of the item is visible
+                rootMargin: "0px 0px -50px 0px" // Adjust to trigger a bit earlier
+            };
 
-            // --- Theme Toggle Functionality ---
+            const appearOnScroll = new IntersectionObserver(function(entries, appearOnScroll) {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) {
+                        return;
+                    } else {
+                        entry.target.classList.add('is-visible');
+                        appearOnScroll.unobserve(entry.target);
+                    }
+                });
+            }, appearOptions);
+
+            faders.forEach(fader => {
+                appearOnScroll.observe(fader);
+            });
+
+            // Three.js Waving Dots Background
+            const canvas = document.getElementById('waving-dots-3d-background');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); // alpha: true for transparent background
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio); // Improve clarity on high-DPI screens
+
+            // Responsive canvas sizing
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // Particle properties
+            const particleCount = 10000;
+            const particles = new Float32Array(particleCount * 3);
+            const particleColors = new Float32Array(particleCount * 3);
+
+            // Base colors (will be updated by theme)
+            let baseColor = new THREE.Color(0xFF53AC); // Pink
+            let accentColor = new THREE.Color(0xEEFF41); // Yellow
+
+            // Function to update colors based on theme
+            window.updateThreeJSColors = () => {
+                const isLightMode = document.body.classList.contains('light-mode');
+                if (isLightMode) {
+                    baseColor.set(0x1A1A1A); // Darker grey for light mode
+                    accentColor.set(0x888888); // Even darker grey for light mode accent
+                } else {
+                    baseColor.set(0xFF53AC); // Pink for dark mode
+                    accentColor.set(0xEEFF41); // Yellow for dark mode
+                }
+
+                // Update particle colors
+                for (let i = 0; i < particleCount; i++) {
+                    const color = new THREE.Color();
+                    // Interpolate between base and accent color based on position or random
+                    color.lerpColors(baseColor, accentColor, Math.random());
+                    particleColors[i * 3] = color.r;
+                    particleColors[i * 3 + 1] = color.g;
+                    particleColors[i * 3 + 2] = color.b;
+                }
+                if (geometry) { // Check if geometry exists before updating
+                    geometry.attributes.color.needsUpdate = true;
+                }
+            };
+
+
+            // Initial particle positions and colors
+            for (let i = 0; i < particleCount; i++) {
+                // Positions: Randomly distribute in a cube
+                particles[i * 3] = (Math.random() - 0.5) * 50;  // x
+                particles[i * 3 + 1] = (Math.random() - 0.5) * 50; // y
+                particles[i * 3 + 2] = (Math.random() - 0.5) * 50; // z
+
+                // Colors: Initially based on current theme, will be updated by updateThreeJSColors
+                const color = new THREE.Color();
+                color.lerpColors(baseColor, accentColor, Math.random());
+                particleColors[i * 3] = color.r;
+                particleColors[i * 3 + 1] = color.g;
+                particleColors[i * 3 + 2] = color.b;
+            }
+
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(particles, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.1,
+                vertexColors: true, // Use colors from the geometry attribute
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending // For a glowing effect
+            });
+
+            const particleSystem = new THREE.Points(geometry, material);
+            scene.add(particleSystem);
+
+            camera.position.z = 5;
+
+            let controls;
+            // Conditionally instantiate OrbitControls only on desktop
+            if (window.innerWidth >= 768) {
+                controls = new OrbitControls(camera, renderer.domElement);
+                controls.enableDamping = true; // smooths out controls
+                controls.dampingFactor = 0.05;
+                controls.screenSpacePanning = false; // pan in camera space
+                controls.maxPolarAngle = Math.PI / 2; // limit vertical rotation
+            }
+
+
+            let mouseX = 0, mouseY = 0;
+            let targetX = 0, targetY = 0;
+
+            const windowHalfX = window.innerWidth / 2;
+            const windowHalfY = window.innerHeight / 2;
+
+            document.addEventListener('mousemove', (event) => {
+                mouseX = (event.clientX - windowHalfX);
+                mouseY = (event.clientY - windowHalfY);
+            });
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Only update controls if they exist (i.e., on desktop)
+                if (controls) {
+                    controls.update();
+                }
+
+                // Mouse influence on camera/scene rotation
+                targetX = mouseX * 0.0005;
+                targetY = mouseY * 0.0005;
+
+                scene.rotation.y += 0.05 * (targetX - scene.rotation.y);
+                scene.rotation.x += 0.05 * (targetY - scene.rotation.x);
+
+                // Wave effect for particles based on time
+                const positions = geometry.attributes.position.array;
+                const time = Date.now() * 0.0001;
+
+                for (let i = 0; i < particleCount; i++) {
+                    const ix = i * 3;
+                    const iy = i * 3 + 1;
+                    const iz = i * 3 + 2;
+
+                    // Apply a sine wave based on initial position and time
+                    positions[iy] = particles[iy] + Math.sin(ix * 0.1 + time * 5) * 0.5; // Wave along Y axis
+                    positions[ix] = particles[ix] + Math.cos(iy * 0.1 + time * 5) * 0.5; // Wave along X axis
+                }
+
+                geometry.attributes.position.needsUpdate = true; // Tell Three.js positions have changed
+
+                renderer.render(scene, camera);
+            }
+
+            animate();
+
+            // Initial color update for Three.js scene
+            window.updateThreeJSColors();
+
+            // Theme toggle functionality
             const themeToggleBtn = document.getElementById('theme-toggle');
-            const footerLogo = document.getElementById('footer-logo');
+            const themeSymbol = document.getElementById('theme-symbol');
+            const footerLogo = document.querySelector('footer .footer-logo');
+            const headerLogo = document.querySelector('header img[alt="PRYSMI Agency Logo"]');
 
-            // Select the span that will hold the symbol
-            const desktopThemeSymbol = themeToggleBtn ? themeToggleBtn.querySelector('.theme-symbol') : null;
-
-            // Function to set the theme
             function setTheme(isLight) {
                 if (isLight) {
                     document.body.classList.add('light-mode');
-                    // When setting to light mode, the button should display "Dark Mode" (moon symbol) to suggest switching to dark.
-                    if (desktopThemeSymbol) desktopThemeSymbol.textContent = '☾';
+                    if (themeSymbol) themeSymbol.textContent = '🌙'; // Moon symbol for dark mode
+                    if (headerLogo) headerLogo.src = 'https://9a7c8340.home-cba.pages.dev/Black%20Horizontal%20Logo%20TM.png';
                     if (footerLogo) footerLogo.src = 'https://9a7c8340.home-cba.pages.dev/Black%20Horizontal%20Logo%20TM.png';
                 } else {
                     document.body.classList.remove('light-mode');
-                    // When setting to dark mode, the button should display "Light Mode" (sun symbol) to suggest switching to light.
-                    if (desktopThemeSymbol) desktopThemeSymbol.textContent = '☀';
+                    if (themeSymbol) themeSymbol.textContent = '☀'; // Sun symbol for light mode
+                    if (headerLogo) headerLogo.src = 'https://9a7c8340.home-cba.pages.dev/Pink%20Horizontal%20Logo%20TM.png';
                     if (footerLogo) footerLogo.src = 'https://9a7c8340.home-cba.pages.dev/White%20Horizontal%20Logo%20TM.png';
                 }
                 localStorage.setItem('theme', isLight ? 'light' : 'dark');
@@ -1100,6 +1019,17 @@
                 });
             }
         });
+    </script>
+    <script>
+      // Nuclear fallback: Intercepts all touch events during capture phase
+      // and stops propagation without calling preventDefault.
+      // This should force native scrolling/taps if other methods fail.
+      ['touchstart','touchmove','touchend','touchcancel'].forEach(evt => {
+        document.addEventListener(evt, function(e){
+          e.stopImmediatePropagation(); // kill any later handlers
+          // don’t call preventDefault — lets native scroll/taps through
+        }, { capture: true, passive: true });
+      });
     </script>
 </body>
 </html>
