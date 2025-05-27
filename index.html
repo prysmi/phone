@@ -70,6 +70,12 @@
             /* Removed overflow-x: hidden; to allow natural scrolling on mobile */
             margin: 0; /* Ensure canvas takes full screen */
             transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
+            /* Ensure body can scroll vertically */
+            overflow-y: auto;
+            height: 100%; /* Ensure body takes at least full height */
+        }
+        html {
+            height: 100%; /* Ensure html takes full height */
         }
         h1, h2, h3, h4 {
             font-family: 'Libre Franklin', sans-serif;
@@ -90,6 +96,7 @@
             backdrop-filter: blur(12px); /* Increased blur for glass effect */
             -webkit-backdrop-filter: blur(12px); /* For Safari */
             transition: all 0.3s ease-in-out;
+            z-index: 1000; /* Ensure header is always on top */
         }
         #main-header.scrolled {
             background-color: var(--color-header-sticky-bg);
@@ -195,9 +202,10 @@
             display: block;
             transition: background-color 0.3s ease-in-out;
         }
+        /* Ensure main content is above the background */
         header, main, footer {
-            position: relative;
-            z-index: 1;
+            position: relative; /* Ensure these elements establish a stacking context */
+            z-index: 10; /* A higher z-index to be above the canvas, but lower than header/buttons */
         }
 
         /* New Hero Title Glow Animation */
@@ -257,7 +265,7 @@
             font-size: 1.5rem;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
             transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out, opacity 0.3s ease-in-out;
-            z-index: 900;
+            z-index: 901; /* Higher than main content, lower than theme toggle */
             opacity: 0;
             visibility: hidden;
         }
@@ -290,7 +298,7 @@
             justify-content: center; /* Center the symbol */
             width: 3rem; /* Fixed width for consistent button size */
             height: 3rem; /* Fixed height for consistent button size */
-            z-index: 950; /* Higher than back-to-top button */
+            z-index: 1001; /* Higher than header and back-to-top button */
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3); /* Add shadow for floating effect */
         }
         #theme-toggle:hover {
@@ -316,6 +324,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
             padding: 1rem;
             margin: 1rem;
+            z-index: 999; /* Ensure mobile menu is above main content but below header/floating buttons */
         }
     </style>
 </head>
