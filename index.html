@@ -67,7 +67,6 @@
             font-family: 'Libre Franklin', sans-serif;
             background-color: var(--color-bg-body);
             color: var(--color-text-primary);
-            /* Removed overflow-x: hidden; to allow natural scrolling on mobile */
             margin: 0; /* Ensure canvas takes full screen */
             transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
             /* Ensure body can scroll vertically */
@@ -197,7 +196,8 @@
             width: 100vw;
             height: 100vh;
             z-index: -1;
-            pointer-events: auto;
+            /* Crucial change: prevent canvas from intercepting pointer events */
+            pointer-events: none;
             background-color: var(--color-bg-body); /* Uses CSS variable */
             display: block;
             transition: background-color 0.3s ease-in-out;
